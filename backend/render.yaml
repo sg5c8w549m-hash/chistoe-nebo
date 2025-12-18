@@ -1,0 +1,16 @@
+services:
+  - name: chistoe-nebo-backend
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "4000"
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

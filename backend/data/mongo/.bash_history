@@ -1,0 +1,6 @@
+mongosh -u root -p 'exampleRootPassword' --authenticationDatabase admin
+C:\Users\77713\Downloads\Chistoe_Nebo_full_package
+docker run --rm --network container:chistoe_mongo -v "${PWD}/diagnostics:/work" mongo:6 bash -lc "mongoexport --uri='mongodb://root:exampleRootPassword@localhost:27017/chistoe_nebo?authSource=admin' --collection=orders --query='{\"_id\":{\"$in\":[{\"$oid\":\"6929a240d9ecff551aa28501\"},{\"$oid\":\"6929adb6d9ecff551aa28504\"},{\"$oid\":\"6929ae35d9ecff551aa28507\"}]}}' --out=/work/backup_three.json --jsonArray"
+mongosh -u root -p 'exampleRootPassword' --authenticationDatabase admin --eval 'use chistoe_nebo; db.orders.updateMany({_id: {$in: [ ObjectId("6929a240d9ecff551aa28501"), ObjectId("6929adb6d9ecff551aa28504"), ObjectId("6929ae35d9ecff551aa28507") ] }}, [ { $set: { orig_address: "$address" } } ]); print("updateMany OK"); printjson(db.orders.find({_id: {$in: [ ObjectId("6929a240d9ecff551aa28501"), ObjectId("6929adb6d9ecff551aa28504"), ObjectId("6929ae35d9ecff551aa28507") ]}}, {address:1, orig_address:1}).toArray());'
+mongosh -u root -p 'exampleRootPassword' --authenticationDatabase admin --eval 'use chistoe_nebo; printjson(db.orders.find({_id: {$in: [ ObjectId("6929a240d9ecff551aa28501"), ObjectId("6929adb6d9ecff551aa28504"), ObjectId("6929ae35d9ecff551aa28507") ]}}, {address:1, orig_address:1}).toArray());'
+exit

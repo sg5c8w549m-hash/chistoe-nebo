@@ -1,0 +1,70 @@
+// src/api/orders.ts
+export type Order = {
+  _id?: string;
+  id?: string;
+  status?: string;
+  wasteType?: string;
+  quantity?: number | string;
+  unit?: string;
+  receivingOrg?: string;
+  address?: string;
+  createdAt?: string;
+  photos?: string[];
+  tariffPerUnit?: number;
+  totalPrice?: number;
+  clientId?: string;
+  [k: string]: any;
+};
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+const USE_MOCK = (import.meta.env.VITE_USE_MOCK === 'true') || false;
+
+const MOCK_ORDERS: Order[] = [
+  { _id: 'm-1', status: 'new', wasteType: 'Макулатура', quantity: 2.5, unit: 'ton', receivingOrg: 'paper_plastic_1', address: 'Усть-Каменогорск, ул. Абая, д.12', createdAt: new Date().toISOString(), photos: [], tariffPerUnit: 35000, totalPrice: 35000 * 2.5, clientId: 'user-1' },
+  { _id: 'm-2', status: 'accepted', wasteType: 'Пластик', quantity: 1, unit: 'ton', receivingOrg: 'paper_plastic_2', address: 'Усть-Каменогорск, пр. Назарбаева, д.5', createdAt: new Date(Date.now() - 86400000).toISOString(), photos: ['https://picsum.photos/seed/plastic/400/300'], tariffPerUnit: 38000, totalPrice: 38000, clientId: 'user-1' },
+];
+
+async function parseResponse(res: Response) {
+  const text = await res.text().catch(() => '');
+  if (!text) return [];
+  try {
+    const json = JSON.parse(text);
+    if (Array.isArray(json)) return json as Order[];
+    if (Array.isArray(json.orders)) return json.orders as Order[];
+    if (Array.isArray(json.data)) return json.data as Order[];
+    return [json] as Order[];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchOrders(): Promise<Order[]> {
+  if (USE_MOCK) {
+    await new Promise((r) => setTimeout(r, 200));
+    return MOCK_ORDERS.slice();
+  }
+  const res = await fetch(`${API_BASE}/api/orders`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await parseResponse(res);
+}
+
+export async function orderAction(id: string, action: 'accept'|'start'|'complete'|'cancel') {
+  if (USE_MOCK) {
+    const idx = MOCK_ORDERS.findIndex(o => o._id === id || o.id === id);
+    if (idx === -1) throw new Error('Not found (mock)');
+    const cur = MOCK_ORDERS[idx];
+    if (action === 'accept') cur.status = 'accepted';
+    if (action === 'start') cur.status = 'in_progress';
+    if (action === 'complete') cur.status = 'completed';
+    if (action === 'cancel') cur.status = 'canceled';
+    await new Promise(r => setTimeout(r, 150));
+    return cur;
+  }
+  const res = await fetch(`${API_BASE}/api/orders/${id}/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  try { return await res.json(); } catch { return null; }
+}

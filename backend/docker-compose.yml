@@ -1,0 +1,29 @@
+﻿services:
+  mongo:
+    image: mongo:6
+    container_name: chistoe_mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+  backend:
+    build: .
+    container_name: chistoe_backend
+    working_dir: /usr/src/app
+    # УБРАЛИ bind-mount ./:/usr/src/app чтобы не перезаписывать файлы, которые
+    # установлены в образе (включая node_modules).
+    # Для разработки можно снова добавить bind-монтирование и выполнить npm install на хосте.
+    ports:
+      - "4000:4000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/chistoe_nebo
+      - PORT=4000
+      - JWT_SECRET=replace_with_secure_secret
+      - CLIENT_URL=http://localhost:5173
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:

@@ -1,0 +1,55 @@
+/* src/index.css */
+
+/* Сброс браузерных стилей */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Гладкая прокрутка */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Основной фон и шрифт */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f1f5f9; /* светло-серый, приятнее для глаза */
+  color: #0f172a; /* серо-черный */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Скроллбар — более аккуратный */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Tailwind-base fix — иногда помогает с картами Яндекс */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Для Яндекс карт — чтобы не вылезали элементы */
+.ymaps-2-1-79-map,
+.ymaps-2-1-79-inner-panes {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}

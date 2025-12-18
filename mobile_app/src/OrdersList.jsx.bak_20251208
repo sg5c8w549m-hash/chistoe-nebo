@@ -1,0 +1,131 @@
+// src/OrdersList.jsx
+import React from "react";
+
+function OrdersList() {
+  // ВРЕМЕННЫЕ тестовые данные, чтобы просто увидеть таблицу
+  const orders = [
+    {
+      _id: "6929ae35d9ecff551aa28507",
+      createdAt: "2025-11-28T14:14:13.000Z",
+      quantity: 1,
+      unit: "kg",
+      address: "Тестовая улица, 12, Усть-Каменогорск",
+      status: "created",
+      price: 1000,
+    },
+    {
+      _id: "6929adb6d9ecff551aa28504",
+      createdAt: "2025-11-28T14:12:06.000Z",
+      quantity: 1,
+      unit: "kg",
+      address: "Тестовая улица, 12",
+      status: "created",
+      price: 1000,
+    },
+    {
+      _id: "6929a240d9ecff551aa28501",
+      createdAt: "2025-11-28T13:23:12.000Z",
+      quantity: 123.45,
+      unit: "kg",
+      address: "Тестовая улица, 12, Усть-Каменогорск",
+      status: "created",
+      price: 2500,
+    },
+  ];
+
+  const handleExportExcel = () => {
+    // Пока просто заглушка, без реального запроса
+    alert("Экспорт Excel включим после того, как страница будет стабильно работать 🙂");
+  };
+
+  return (
+    <div
+      style={{
+        maxWidth: "960px",
+        margin: "0 auto",
+        background: "white",
+        borderRadius: 8,
+        padding: 16,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 18 }}>Список заказов (тестовые данные)</h2>
+
+        <button
+          onClick={handleExportExcel}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 4,
+            border: "none",
+            background: "#2563eb",
+            color: "white",
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          Скачать Excel
+        </button>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 14,
+          }}
+        >
+          <thead>
+            <tr style={{ background: "#e5e7eb" }}>
+              <th style={thStyle}>ID</th>
+              <th style={thStyle}>Дата</th>
+              <th style={thStyle}>Кол-во</th>
+              <th style={thStyle}>Ед.</th>
+              <th style={thStyle}>Адрес</th>
+              <th style={thStyle}>Статус</th>
+              <th style={thStyle}>Цена</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr key={order._id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                <td style={tdStyle}>{order._id}</td>
+                <td style={tdStyle}>
+                  {order.createdAt
+                    ? new Date(order.createdAt).toLocaleString("ru-RU")
+                    : ""}
+                </td>
+                <td style={tdStyle}>{order.quantity}</td>
+                <td style={tdStyle}>{order.unit}</td>
+                <td style={tdStyle}>{order.address}</td>
+                <td style={tdStyle}>{order.status}</td>
+                <td style={tdStyle}>{order.price}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const thStyle = {
+  textAlign: "left",
+  padding: "8px",
+  borderBottom: "1px solid #d1d5db",
+};
+
+const tdStyle = {
+  padding: "6px 8px",
+  verticalAlign: "top",
+};
+
+export default OrdersList;
