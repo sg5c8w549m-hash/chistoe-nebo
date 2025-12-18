@@ -1,16 +1,17 @@
 services:
-  - name: chistoe-nebo-backend
-    type: web
-    runtime: docker
+  - type: web
+    name: chistoe-nebo-backend
+    runtime: node
     plan: free
-    dockerfilePath: backend/Dockerfile
-    autoDeploy: true
+
+    rootDir: backend
+
+    buildCommand: npm install
+    startCommand: npm start
+
     envVars:
-      - key: PORT
-        value: "4000"
       - key: NODE_ENV
         value: production
-      - key: MONGO_URI
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
+
+      - key: PORT
+        value: 4000
