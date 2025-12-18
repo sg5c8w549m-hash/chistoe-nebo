@@ -1,28 +1,61 @@
-# node
+# ===============================
+# Node.js
+# ===============================
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# env
+# ===============================
+# Environment variables
+# ===============================
 .env
-.env.*
+.env.local
+.env.production
 
-# build
-dist/
-build/
-
-# docker
+# ===============================
+# Logs
+# ===============================
+logs/
 *.log
 
-# exports / diagnostics
-exports/
-diagnostics/
-orders*.csv
-orders*.json
+# ===============================
+# MongoDB DATA (ВАЖНО)
+# ===============================
+data/
+data/**
+backend/data/
+backend/data/**
 
-# temp / backup
-*.bak
-*.tmp
+# ===============================
+# MongoDB internal files
+# ===============================
+*.wt
+*.lock
+*.turtle
+*.bson
+*.journal
+WiredTiger*
+mongod.lock
+storage.bson
+sizeStorer.wt
 
-# OS
+# ===============================
+# OS / Editor
+# ===============================
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+
+# ===============================
+# Build / cache
+# ===============================
+dist/
+build/
+.cache/
+
+# ===============================
+# Docker
+# ===============================
+docker-data/
