@@ -1,0 +1,32 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+
+// Путь должен быть относительным к файлу server.js
+const connectDB = require('./connectDB'); // если файл backend/connectDB.js
+// или: const connectDB = require('./utils/connectDB'); // если в utils
+
+const authRoutes = require('./routes/auth');
+const wasteRoutes = require('./routes/wasteTypes');
+const ordersRoutes = require('./routes/orders');
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+connectDB();
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true,
+}));
+
+app.use(express.json());
+
+// монтирование роутов
+app.use('/api/auth', authRoutes);
+app.use('/api/waste-types', wasteRoutes);
+app.use('/api/orders', ordersRoutes);
+
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

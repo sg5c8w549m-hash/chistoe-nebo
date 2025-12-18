@@ -1,0 +1,153 @@
+﻿# restore_addresses_full.ps1
+# Выполняет: per-id mongoexport для всех changes_*.csv -> diagnostics/orders_doc_<id>.json
+# Затем собирает id->address map и восстанавливает адреса в CSV exports/orders_export_fixed_addresses_utf8bom.csv
+# Запуск: powershell -ExecutionPolicy Bypass -File .\restore_addresses_full.ps1
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Параметры (проверь перед запуском)
+$ProjectRoot = (Get-Location).Path
+$ExportsDir  = Join-Path $ProjectRoot 'exports'
+$DiagDir     = Join-Path $ProjectRoot 'diagnostics'
+$MongoContainer = 'chistoe_mongo'      # поправь если у тебя другое имя контейнера
+$MongoUri = "mongodb://root:exampleRootPassword@mongo:27017/chistoe_nebo?authSource=admin"
+# Имя результирующего CSV
+$InCsv  = Join-Path $ExportsDir 'orders_export_fixed_addresses_utf8bom.csv'
+$OutCsv = Join-Path $ExportsDir 'orders_export_restored_addresses.csv'
+
+# Убедимся что папки есть
+if (-not (Test-Path $DiagDir)) { New-Item -Path $DiagDir -ItemType Directory -Force | Out-Null }
+if (-not (Test-Path $ExportsDir)) { Write-Error "Не найден exports dir: $ExportsDir"; exit 1 }
+
+Write-Host "`n[1] Detecting Docker network for container '$MongoContainer'..."
+$netsRaw = (& docker inspect $MongoContainer --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}};{{end}}' 2>$null)
+$nets = @()
+if ($netsRaw) { $nets = ($netsRaw -split ';') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' } }
+if ($nets.Count -gt 0) { $networkName = $nets[0].Trim() } else { $networkName = "container:$MongoContainer" }
+Write-Host "Using docker network: $networkName"
+
+# helper: запуск docker run через массив аргументов (логирование в diagnostics)
+function Run-DockerArgs {
+    param(
+        [string[]]$Args,
+        [string]$LogPath
+    )
+    try {
+        & docker @Args 2>&1 | Tee-Object -FilePath $LogPath
+    } catch {
+        $_ | Out-File -FilePath $LogPath -Encoding UTF8 -Append
+    }
+}
+
+# 2) Экспорт per-id: читаем changes_*.csv и пытаемся получить оригинальные документы
+Write-Host "`n[2] Exporting original documents by id (changes_*.csv -> diagnostics/orders_doc_<id>.json)..."
+$changes = Get-ChildItem $DiagDir -Filter 'changes_*.csv' -File -ErrorAction SilentlyContinue  
+if (-not $changes) { Write-Host "No changes_*.csv found in $DiagDir  nothing to export."; }    
+else {
+    foreach ($ch in $changes) {
+        Write-Host "`nProcessing $($ch.Name)" 
+        Import-Csv $ch.FullName -Encoding UTF8 | ForEach-Object {
+            $rawId = $_.'_id'
+            if (-not $rawId) { return }
+            if ($rawId -match 'ObjectId\((.+)\)') { $id = $Matches[1].Trim() } else { $id = $rawId.Trim() }
+            if ([string]::IsNullOrWhiteSpace($id)) { return }
+
+            $outName = "orders_doc_$id.json"  
+            $outPath = Join-Path $DiagDir $outName
+            $logPath = Join-Path $DiagDir ("fallback_export_$id.out")
+
+            if (Test-Path $outPath) { Write-Host "Already exists: $outName (skipping)"; return }
+
+            Write-Host "Exporting id $id -> $outPath"
+
+            # Build JSON query safely
+            $jsonQuery = '{ "_id": { "$oid": "' + $id + '" } }'
+            $mongoCmd = "mongoexport --uri='$MongoUri' --collection=orders --query='$jsonQuery' --out=/data/$outName --jsonArray"
+
+            # Prepare docker args array (avoid quoting issues)
+            $hostDiagnostics = (Resolve-Path $DiagDir).Path
+            $volumeArg = $hostDiagnostics + ':/data'
+            $dockerArgs = @('run','--rm','--network',$networkName,'-v',$volumeArg,'mongo:6.0','bash','-lc',$mongoCmd)
+
+            Run-DockerArgs -Args $dockerArgs -LogPath $logPath
+
+            Start-Sleep -Milliseconds 300     
+            if (Test-Path $outPath) { Write-Host "OK: $outName" } else { Write-Warning "FAILED: see $logPath (tail):"; if (Test-Path $logPath) { Get-Content $logPath -Tail 80 | ForEach-Object { Write-Host $_ } } }
+        }
+    }
+}
+
+# 3) Собираем id -> address map (id_address_map.csv)
+Write-Host "`n[3] Building id->address map from diagnostics/orders_doc_*.json..."
+$idAddrMapPath = Join-Path $DiagDir 'id_address_map.csv'
+$mapRows = @()
+Get-ChildItem $DiagDir -Filter 'orders_doc_*.json' -File | ForEach-Object {
+    $jsonRaw = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+    if (-not $jsonRaw) { return }
+    try {
+        $docs = $jsonRaw | ConvertFrom-Json   
+    } catch {
+        # если файл пуст или не JSON, пропускаем
+        return
+    }
+    foreach ($doc in $docs) {
+        $idVal = ''
+        if ($doc._id -and $doc._id.PSObject.Properties.Name -contains '$oid') { $idVal = $doc._id.'$oid' } elseif ($doc._id) { $idVal = $doc._id.ToString() }
+        $addrVal = ''
+        if ($doc.address) { $addrVal = $doc.address } elseif ($doc.addr) { $addrVal = $doc.addr }
+        if (-not [string]::IsNullOrWhiteSpace($idVal)) {
+            $mapRows += [PSCustomObject]@{ _id = $idVal; address = $addrVal }
+        }
+    }
+}
+if ($mapRows.Count -gt 0) { $mapRows | Export-Csv -Path $idAddrMapPath -NoTypeInformation -Encoding UTF8; Write-Host "Saved id->address map: $idAddrMapPath" }
+else { Write-Warning "No exported docs found to build id->address map." }
+
+# 4) Восстанавливаем адреса в исходном fixed CSV
+Write-Host "`n[4] Restoring addresses into CSV (if id map available)..."
+if (-not (Test-Path $InCsv)) { Write-Warning "Input CSV not found: $InCsv"; exit 0 }
+if (-not (Test-Path $idAddrMapPath)) { Write-Warning "id_address_map.csv not found, cannot restore addresses."; exit 0 }
+
+$map = Import-Csv $idAddrMapPath -Encoding UTF8 | Group-Object -AsHashTable -AsString -Property _id
+
+$rows = Import-Csv $InCsv -Encoding UTF8
+$changedCount = 0
+foreach ($r in $rows) {
+    # нормализуем id: убрать ObjectId(...) если есть
+    $rawId = $r._id
+    if (-not $rawId) { continue }
+    $id = $rawId -replace '^ObjectId\(|\)$',''
+    if ($map.ContainsKey($id)) {
+        $addrFromMap = $map[$id].address
+        if ($addrFromMap -and ($r.address -eq '<<UNKNOWN_ADDRESS>>' -or $r.address -match '^\?{2,}')) {
+            $r.address = $addrFromMap
+            $changedCount++
+        }
+    }
+}
+
+# Запись результата (UTF8 BOM)
+$tmp = [System.IO.Path]::GetTempFileName()
+$rows | Export-Csv -Path $tmp -NoTypeInformation -Encoding UTF8
+$utf8 = [System.Text.Encoding]::UTF8
+$all = Get-Content $tmp -Raw
+[System.IO.File]::WriteAllBytes($OutCsv, $utf8.GetPreamble() + $utf8.GetBytes($all))
+Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+
+Write-Host "Restoration complete. Changed rows: $changedCount"
+Write-Host "Wrote restored CSV: $OutCsv"
+
+# 5) Архивируем exports/ и diagnostics/ (опционально)
+try {
+    $ts = (Get-Date).ToString('yyyyMMdd_HHmm')
+    $zip = Join-Path $env:USERPROFILE "Documents\Chistoe_Nebo_restore_$ts.zip"
+    Compress-Archive -Path (Join-Path $ExportsDir '*'), (Join-Path $DiagDir '*') -DestinationPath $zip -Force
+    Write-Host "Archive created: $zip"
+} catch {
+    Write-Warning "Archive failed: $($_.Exception.Message)"
+}
+
+Write-Host "`n=== DONE ==="
+Write-Host "Check: exports/, diagnostics/ (id_address_map.csv, changes_*.csv, fallback_export_*.out)"
+

@@ -1,0 +1,28 @@
+# node
+node_modules/
+npm-debug.log*
+
+# env
+.env
+.env.*
+
+# build
+dist/
+build/
+
+# docker
+*.log
+
+# exports / diagnostics
+exports/
+diagnostics/
+orders*.csv
+orders*.json
+
+# temp / backup
+*.bak
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
